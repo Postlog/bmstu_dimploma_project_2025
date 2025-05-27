@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Редактор кода</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="main-container">
+        <!-- Основная область редактора -->
+        <div class="editor-area">
+            <div class="editor-header">
+                <span>🎨 Виртуализированный редактор с подсветкой синтаксиса</span>
+                <span id="currentLanguage">Язык не выбран</span>
+            </div>
+            <div class="editor-container">
+                <div class="virtualized-editor" id="virtualizedEditor"></div>
+            </div>
+        </div>
+        
+        <!-- Боковая панель настроек -->
+        <div class="sidebar">
+            <!-- Выбор языка -->
+            <div class="sidebar-section">
+                <div class="sidebar-header">🌐 Язык программирования</div>
+                <div class="sidebar-content">
+                    <div class="setting-group">
+                        <label class="setting-label" for="languageSelect">Выберите язык:</label>
+                        <select id="languageSelect" class="setting-input">
+                            <option value="">Выберите язык...</option>
+                        </select>
+                        <div class="language-info" id="languageInfo" style="display: none;">
+                            <span class="rule-count" id="ruleCount">0</span> правил загружено
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Настройки редактора -->
+            <div class="sidebar-section">
+                <div class="sidebar-header">⚙️ Настройки редактора</div>
+                <div class="sidebar-content">
+                    <div class="setting-group">
+                        <label class="setting-label" for="fontSizeRange">Размер шрифта: <span id="fontSizeValue">14</span>px</label>
+                        <input type="range" id="fontSizeRange" class="setting-range" min="10" max="24" value="14">
+                    </div>
+                    
+                    <div class="setting-group">
+                        <label class="setting-label" for="lineHeightRange">Высота строки: <span id="lineHeightValue">20</span>px</label>
+                        <input type="range" id="lineHeightRange" class="setting-range" min="16" max="32" value="20">
+                    </div>
+                    
+                    <div class="setting-group">
+                        <label class="setting-label" for="fontFamilySelect">Шрифт:</label>
+                        <select id="fontFamilySelect" class="setting-input">
+                            <option value="'Courier New', monospace">Courier New</option>
+                            <option value="'Monaco', monospace">Monaco</option>
+                            <option value="'Consolas', monospace">Consolas</option>
+                            <option value="'Source Code Pro', monospace">Source Code Pro</option>
+                        </select>
+                    </div>
+                </div>
+            </div>            
+        </div>
+    </div>
+
+    <script type="module">
+        import { NFA } from '../nfa.js';
+        import { DFA } from '../dfa.js';
+        import { MealyMachine, runMealy } from '../mealy.js';
+        import { VirtualizedCodeEditor } from './virtualized-editor.js';
+        import { RULES } from './rules.js';
+        import { CODE_SAMPLES } from './code-samples.js';
+        
+        // Экспортируем в глобальный контекст для использования в виртуализированном редакторе
+        window.NFA = NFA;
+        window.DFA = DFA;
+        window.MealyMachine = MealyMachine;
+        window.runMealy = runMealy;
+        
+        // Кэш скомпилированных автоматов Мили для каждого языка
+        const compiledAutomatons = {};
+        let currentLanguage = null;
+        let virtualizedEditor = null;
+
+        window.addEventListener('load', () => {
+            initializeLanguageSelector();
+            initializeVirtualizedEditor();
+            initializeSettings();
+            setupEventListeners();
+            
+            if (RULES.Go) {
+                document.getElementById('languageSelect').value = 'Go';
+                changeLanguage('Go');
+            }
+        });
+        
+        function initializeLanguageSelector() {
+            const languageSelect = document.getElementById('languageSelect');
+            
+            // Добавляем все доступные языки в селектор
+            Object.keys(RULES).forEach(language => {
+                const option = document.createElement('option');
+                option.value = language;
+                option.textContent = language;
+                languageSelect.appendChild(option);
+            });
+        }
+        
+        function initializeVirtualizedEditor() {
+            const container = document.getElementById('virtualizedEditor');
+            virtualizedEditor = new VirtualizedCodeEditor(container, {
+                lineHeight: 20,
+                fontSize: 14,
+                fontFamily: 'Courier New, monospace',
+                padding: 12,
+                overscan: 10,
+                currentLineHighlight: '#2d2d30' 
+            });
+            
+            // Загружаем пример кода
+            virtualizedEditor.setText(CODE_SAMPLES.Go);
+            virtualizedEditor.focus()
+        }
+        
+        function initializeSettings() {
+            // Настройка размера шрифта
+            const fontSizeRange = document.getElementById('fontSizeRange');
+            const fontSizeValue = document.getElementById('fontSizeValue');
+            
+            fontSizeRange.addEventListener('input', (e) => {
+                const size = parseInt(e.target.value);
+                fontSizeValue.textContent = size;
+                if (virtualizedEditor) {
+                    virtualizedEditor.options.fontSize = size;
+                    virtualizedEditor.container.style.fontSize = `${size}px`;
+                    virtualizedEditor.clearCache();
+                }
+            });
+            
+            // Настройка высоты строки
+            const lineHeightRange = document.getElementById('lineHeightRange');
+            const lineHeightValue = document.getElementById('lineHeightValue');
+            
+            lineHeightRange.addEventListener('input', (e) => {
+                const height = parseInt(e.target.value);
+                lineHeightValue.textContent = height;
+                if (virtualizedEditor) {
+                    virtualizedEditor.options.lineHeight = height;
+                    virtualizedEditor.container.style.lineHeight = `${height}px`;
+                    virtualizedEditor.totalHeight = virtualizedEditor.lines.length * height + virtualizedEditor.options.padding * 2;
+                    virtualizedEditor.spacer.style.height = `${virtualizedEditor.totalHeight}px`;
+                    virtualizedEditor.updateTextareaHeight();
+                    virtualizedEditor.clearCache();
+                }
+            });
+            
+            // Настройка шрифта
+            const fontFamilySelect = document.getElementById('fontFamilySelect');
+            fontFamilySelect.addEventListener('change', (e) => {
+                const fontFamily = e.target.value;
+                if (virtualizedEditor) {
+                    virtualizedEditor.options.fontFamily = fontFamily;
+                    virtualizedEditor.container.style.fontFamily = fontFamily;
+                    virtualizedEditor.clearCache();
+                }
+            });
+        }
+        
+        function setupEventListeners() {
+            const languageSelect = document.getElementById('languageSelect');
+            
+            languageSelect.addEventListener('change', (e) => {
+                const selectedLanguage = e.target.value;
+                if (selectedLanguage) {
+                    changeLanguage(selectedLanguage);
+                } else {
+                    clearLanguage();
+                }
+            });
+        }
+        
+        function changeLanguage(language) {
+            currentLanguage = language;
+            
+            // Обновляем UI
+            document.getElementById('currentLanguage').textContent = language;
+            document.getElementById('ruleCount').textContent = RULES[language].length;
+            document.getElementById('languageInfo').style.display = 'block';
+            
+            // Компилируем автомат для языка, если еще не скомпилирован
+            if (!compiledAutomatons[language]) {
+                try {
+                    compiledAutomatons[language] = compileLanguageAutomaton(language);
+                    console.log(`Автомат для ${language} успешно скомпилирован`);
+                } catch (error) {
+                    console.error(`Ошибка компиляции автомата для ${language}:`, error);
+                    return;
+                }
+            }
+            
+            // Устанавливаем автомат в виртуализированный редактор
+            if (virtualizedEditor) {
+                virtualizedEditor.setAutomaton(compiledAutomatons[language], RULES[language]);
+            }
+        }
+        
+        function clearLanguage() {
+            currentLanguage = null;
+            document.getElementById('currentLanguage').textContent = 'Язык не выбран';
+            document.getElementById('languageInfo').style.display = 'none';
+            
+            if (virtualizedEditor) {
+                virtualizedEditor.setAutomaton(null, []);
+            }
+            
+            document.getElementById('tokensList').innerHTML = '<p style="color: #666; font-style: italic;">Выберите язык для анализа токенов</p>';
+        }
+        
+        function compileLanguageAutomaton(language) {
+            const rules = RULES[language];
+            if (!rules || rules.length === 0) {
+                throw new Error(`Правила для языка ${language} не найдены`);
+            }
+            
+            const nfas = rules.map(rule => {
+                const regexString = rule.Regex.source;
+                console.log(language, rule.Name, regexString);
+                return NFA.fromRegex(regexString, rule.Name);
+            });
+            
+            const unionNFA = NFA.union(nfas);
+            const dfa = DFA.fromNFA(unionNFA);
+            return MealyMachine.fromDFA(dfa);
+        }
+    </script>
+</body>
+</html> 

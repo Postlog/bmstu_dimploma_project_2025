@@ -1,0 +1,16 @@
+{
+  "name": "syntax_highlighter",
+  "version": "1.0.0",
+  "type": "module",
+  "directories": {
+    "example": "example",
+    "test": "tests"
+  },
+  "scripts": {
+    "example": "python3 -m http.server 8000",
+    "test": "for file in tests/*.js; do node $file; done"
+  },
+  "author": "Postlog",
+  "license": "ISC",
+  "description": ""
+}
