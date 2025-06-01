@@ -1,2 +1,4 @@
 *.docx
-нир.md
+*.md
+!README.md
+node_modules/

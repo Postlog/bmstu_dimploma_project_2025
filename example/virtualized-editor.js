@@ -14,7 +14,7 @@ class VirtualizedCodeEditor {
             padding: options.padding || 12,
             overscan: options.overscan || 5, // количество дополнительных строк для рендера
             currentLineHighlight: options.currentLineHighlight || '#2d2d30', // цвет подсветки текущей строки
-            ...options
+            ...options,
         };
 
         this.lines = [];
@@ -147,7 +147,7 @@ class VirtualizedCodeEditor {
     }
 
     updateTextareaHeight() {
-        // Устанавливаем высоту textarea равной общей высоте контента
+    // Устанавливаем высоту textarea равной общей высоте контента
         this.hiddenTextarea.style.height = `${this.totalHeight}px`;
     }
 
@@ -163,7 +163,7 @@ class VirtualizedCodeEditor {
     }
 
     handleKeyDown(e) {
-        // Обрабатываем специальные клавиши если нужно
+    // Обрабатываем специальные клавиши если нужно
         if (e.key === 'Tab') {
             e.preventDefault();
             this.insertText('    '); // 4 пробела вместо табуляции
@@ -174,13 +174,13 @@ class VirtualizedCodeEditor {
     }
 
     handleTextareaClick() {
-        // Обновляем рендер при клике для корректного позиционирования
+    // Обновляем рендер при клике для корректного позиционирования
         this.updateCursorPosition();
         setTimeout(() => this.render(), 0);
     }
 
     handleTextareaFocus() {
-        // Обновляем рендер при фокусе
+    // Обновляем рендер при фокусе
         this.updateCursorPosition();
         setTimeout(() => this.render(), 0);
     }
@@ -198,7 +198,7 @@ class VirtualizedCodeEditor {
     }
 
     handleContainerScroll() {
-        if (this.isScrollSyncing) return;
+        if (this.isScrollSyncing) {return;}
 
         this.isScrollSyncing = true;
         this.scrollTop = this.container.scrollTop;
@@ -210,18 +210,18 @@ class VirtualizedCodeEditor {
     }
 
     handleTextareaScroll() {
-        if (this.isScrollSyncing) return;
+        if (this.isScrollSyncing) {return;}
 
         this.isScrollSyncing = true;
 
         // Синхронизируем скролл контейнера с textarea
         // requestAnimationFrame(() => {
-            this.container.scrollTop = this.hiddenTextarea.scrollTop;
-            this.container.scrollLeft = this.hiddenTextarea.scrollLeft;
-            this.scrollTop = this.container.scrollTop;
-            this.render();
-            this.isScrollSyncing = false;
-        // });
+        this.container.scrollTop = this.hiddenTextarea.scrollTop;
+        this.container.scrollLeft = this.hiddenTextarea.scrollLeft;
+        this.scrollTop = this.container.scrollTop;
+        this.render();
+        this.isScrollSyncing = false;
+    // });
     }
 
     handleResize() {
@@ -237,7 +237,7 @@ class VirtualizedCodeEditor {
         const startLine = Math.max(0, Math.floor((this.scrollTop - this.options.padding) / this.options.lineHeight) - this.options.overscan);
         const endLine = Math.min(
             this.lines.length - 1,
-            Math.ceil((this.scrollTop + this.containerHeight - this.options.padding) / this.options.lineHeight) + this.options.overscan
+            Math.ceil((this.scrollTop + this.containerHeight - this.options.padding) / this.options.lineHeight) + this.options.overscan,
         );
 
         return { startLine, endLine };
@@ -317,12 +317,12 @@ class VirtualizedCodeEditor {
                 this.tokensPerLine[currentLineIndex].push({
                     start: tokenStartInLine,
                     end: tokenEndInLine,
-                    style: token.style
+                    style: token.style,
                 });
             } else {
                 // Токен пересекает несколько строк - разбиваем его
                 let remainingStart = token.start;
-                let remainingEnd = token.end;
+                const remainingEnd = token.end;
                 let lineIdx = currentLineIndex;
                 let lineStart = currentLineStart;
 
@@ -335,7 +335,7 @@ class VirtualizedCodeEditor {
                         this.tokensPerLine[lineIdx].push({
                             start: tokenStartInCurrentLine,
                             end: tokenEndInCurrentLine,
-                            style: token.style
+                            style: token.style,
                         });
                     }
 
@@ -348,7 +348,7 @@ class VirtualizedCodeEditor {
     }
 
     highlightLine(lineText, lineNumber) {
-        // Получаем токены для данной строки
+    // Получаем токены для данной строки
         const tokens = this.tokensPerLine[lineNumber] || [];
 
         return this.tokensToHtml(lineText, tokens);
@@ -380,8 +380,8 @@ class VirtualizedCodeEditor {
 
             if (style) {
                 let cssStyle = `color: ${style.Color};`;
-                if (style.Bold) cssStyle += ' font-weight: bold;';
-                if (style.Italic) cssStyle += ' font-style: italic;';
+                if (style.Bold) {cssStyle += ' font-weight: bold;';}
+                if (style.Italic) {cssStyle += ' font-style: italic;';}
 
                 html += `<span style="${cssStyle}">${this.escapeHtml(tokenText)}</span>`;
             } else {
@@ -436,10 +436,10 @@ class VirtualizedCodeEditor {
     }
 
     updateChangedLines(startLine, endLine) {
-        // Обновляем только изменившиеся строки
+    // Обновляем только изменившиеся строки
         for (let i = startLine; i <= endLine; i++) {
             const lineData = this.renderedLines.get(i);
-            if (!lineData) continue;
+            if (!lineData) {continue;}
 
             const newContentHash = this.getLineContentHash(i);
             const isCurrentLine = i === this.cursorLine;
@@ -452,14 +452,14 @@ class VirtualizedCodeEditor {
                 this.renderedLines.set(i, {
                     element: lineData.element,
                     content: newContentHash,
-                    isCurrentLine: isCurrentLine
+                    isCurrentLine,
                 });
             }
         }
     }
 
     updateVisibleRange(startLine, endLine) {
-        // Удаляем строки, которые больше не видны
+    // Удаляем строки, которые больше не видны
         for (const [lineIndex, lineData] of this.renderedLines) {
             if (lineIndex < startLine || lineIndex > endLine) {
                 if (lineData.element && lineData.element.parentNode) {
@@ -483,7 +483,7 @@ class VirtualizedCodeEditor {
                     index: i,
                     element: lineElement,
                     content: this.getLineContentHash(i),
-                    isCurrentLine: i === this.cursorLine
+                    isCurrentLine: i === this.cursorLine,
                 });
 
                 fragment.appendChild(lineElement);
@@ -500,7 +500,7 @@ class VirtualizedCodeEditor {
             this.renderedLines.set(item.index, {
                 element: item.element,
                 content: item.content,
-                isCurrentLine: item.isCurrentLine
+                isCurrentLine: item.isCurrentLine,
             });
         });
 
@@ -613,7 +613,7 @@ class VirtualizedCodeEditor {
     }
 
     returnAllElementsToPool() {
-        for (const [lineIndex, lineData] of this.renderedLines) {
+        for (const [, lineData] of this.renderedLines) {
             if (lineData.element) {
                 this.returnElementToPool(lineData.element);
             }
@@ -630,7 +630,7 @@ class VirtualizedCodeEditor {
 
         this.container.scrollTo({
             top: targetScrollTop,
-            behavior: 'smooth'
+            behavior: 'smooth',
         });
 
         // Синхронизируем textarea после завершения анимации
@@ -651,7 +651,7 @@ class VirtualizedCodeEditor {
     getCursorPosition() {
         return {
             start: this.hiddenTextarea.selectionStart,
-            end: this.hiddenTextarea.selectionEnd
+            end: this.hiddenTextarea.selectionEnd,
         };
     }
 
@@ -715,4 +715,4 @@ class VirtualizedCodeEditor {
     }
 }
 
-export { VirtualizedCodeEditor }; 
+export { VirtualizedCodeEditor };

@@ -15,9 +15,10 @@ class MealyMachine {
 
     static fromDFA(dfa) {
         const mealy = new MealyMachine();
+        const sortedStates = [...dfa.states].sort((a, b) => {return a - b; });
 
-        for (const state of dfa.states) {
-            mealy.addState(state);
+        for (const state of sortedStates) {
+            mealy.allStates.push(state);
         }
 
         mealy.setStartState(dfa.startState);
@@ -38,15 +39,6 @@ class MealyMachine {
         }
 
         return mealy;
-    }
-
-    /**
-     * Добавление состояния
-     */
-    addState(state) {
-        if (!this.allStates.includes(state)) {
-            this.allStates.push(state);
-        }
     }
 
     /**
@@ -85,7 +77,6 @@ class MealyMachine {
         }
         return null;
     }
-        
 }
 
 function runMealy(mealy, input) {
@@ -101,22 +92,21 @@ function runMealy(mealy, input) {
         const nextState = mealy.getNextState(currentState, symbol);
         const currentStateStyle = mealy.getStyle(currentState);
 
-        
         // Попали в ловушку - завершаем текущую лексему
         if (nextState === null) {
-            // Не можем перейти - завершаем текущую лексему если для предыдущего состояния был зафиксирован стиль 
+            // Не можем перейти - завершаем текущую лексему если для предыдущего состояния был зафиксирован стиль
             // (т.е. оно было принимающим)
             if (currentStateStyle !== null) {
                 results.push({
                     start: lexemeStart,
                     end: position - 1,
-                    style: currentStateStyle
+                    style: currentStateStyle,
                 });
             } else {
                 // Сдвигаем позицию только если на предыдщих шагах не было зафиксировано лексемы
                 // Таким образом, мы "повторяем" обработку текущего символа, только уже из начального состояние.
                 // Если же на предыдущих состояниях лексемы не было зафиксировано, то мы уже в начальном состоянии
-                position++
+                position++;
             }
 
             // Сбрасываем автомат и лексему для поиска следующего токена
@@ -127,7 +117,7 @@ function runMealy(mealy, input) {
 
         // Переходим в следующее состояние
         currentState = nextState;
-        
+
         position++;
     }
 
@@ -137,7 +127,7 @@ function runMealy(mealy, input) {
         results.push({
             start: lexemeStart,
             end: position - 1,
-            style: currentStateStyle
+            style: currentStateStyle,
         });
     }
 

@@ -1,12 +1,12 @@
 /**
  * Построение НКА (недетерминированного конечного автомата) по регулярному выражению
  * Алгоритм Томпсона (Thompson's construction)
- * 
+ *
  * Поддерживаемые операции:
  * - Основные: |, (), *, +, ?
  * - Множества: [A-Z], [^0-9], [A-Za-z_0-9]
  * - Классы: \d, \w, ., \s
- * 
+ *
  * Что не поддерживается:
  * - Пустые группы ()
  * - Пустые альтернативы (a|)
@@ -20,7 +20,7 @@ import { UNICODE_CHARS } from './unicode.js';
  */
 class NFA {
     constructor() {
-        this.states = [];                    // массив состояний
+        this.allStates = [];                    // массив состояний
         this.transitions = {};               // {state: {symbol: [state1, state2, ...]}}
         this.epsilonTransitions = {};        // {state: [state1, state2, ...]}
         this.startState = null;
@@ -44,7 +44,7 @@ class NFA {
      */
     static union(nfas) {
         if (!Array.isArray(nfas)) {
-            nfas = [nfas]
+            nfas = [nfas];
         }
 
         if (nfas.length === 0) {
@@ -73,7 +73,7 @@ class NFA {
 
                 result.acceptStates[mappedAcceptState] = {
                     style: styleInfo.style,
-                    priority: i  // приоритет = порядок в массиве (меньше = выше приоритет)
+                    priority: i,  // приоритет = порядок в массиве (меньше = выше приоритет)
                 };
             }
         }
@@ -85,8 +85,8 @@ class NFA {
      * Создание нового состояния
      */
     createState() {
-        const state = `q${this.stateCounter++}`;
-        this.states.push(state);
+        const state = this.stateCounter++;
+        this.allStates.push(state);
         return state;
     }
 
@@ -144,7 +144,7 @@ class NFA {
         for (const accept of Object.keys(this.acceptStates)) {
             result.addEpsilonTransition(
                 thisStateMap[accept],
-                otherStateMap[other.startState]
+                otherStateMap[other.startState],
             );
         }
 
@@ -197,7 +197,7 @@ class NFA {
      * a+ эквивалентно aa*
      */
     plus() {
-        // Создаем копию оригинального автомата
+    // Создаем копию оригинального автомата
         const original = new NFA();
         const originalStateMap = this.copyToAnother(original);
 
@@ -253,11 +253,11 @@ class NFA {
      * Копирование состояний и переходов в другой НКА
      */
     copyToAnother(target) {
-        // Создаем объект для перименования состояний (избегаем конфликтов)
+    // Создаем объект для перименования состояний (избегаем конфликтов)
         const stateMap = {};
 
         // Копируем состояния с новыми именами
-        for (const state of this.states) {
+        for (const state of this.allStates) {
             const newState = target.createState();
             stateMap[state] = newState;
         }
@@ -269,7 +269,7 @@ class NFA {
                     target.addTransition(
                         stateMap[fromState],
                         symbol,
-                        stateMap[toState]
+                        stateMap[toState],
                     );
                 }
             }
@@ -280,7 +280,7 @@ class NFA {
             for (const toState of this.epsilonTransitions[fromState]) {
                 target.addEpsilonTransition(
                     stateMap[fromState],
-                    stateMap[toState]
+                    stateMap[toState],
                 );
             }
         }
@@ -320,7 +320,7 @@ class NFA {
  */
 class RegexParser {
     static BAD_CHARS_FOR_ATOM = new Set(['*', '+', '?', ')', '|', ']']);
-    
+
     constructor(regex) {
         this.regex = regex instanceof RegExp ? regex.source : regex;
         this.pos = 0;
@@ -336,7 +336,7 @@ class RegexParser {
             throw new Error(`Unexpected character '${this.peek()}' at position ${this.pos}`);
         }
 
-        return nfa
+        return nfa;
     }
 
     /**
@@ -492,20 +492,20 @@ class RegexParser {
 
     getEscapedClass(char) {
         switch (char) {
-            case 'd':
-                return UNICODE_CHARS.digits;
-            case 'w':
-                return UNICODE_CHARS.word;
-            case 's':
-                return UNICODE_CHARS.whitespace;
-            case 'n':
-                return new Set(['\n']);
-            case 'r':
-                return new Set(['\r']);
-            case 't':
-                return new Set(['\t']);
-            default:
-                return new Set([char]);
+        case 'd':
+            return UNICODE_CHARS.digits;
+        case 'w':
+            return UNICODE_CHARS.word;
+        case 's':
+            return UNICODE_CHARS.whitespace;
+        case 'n':
+            return new Set(['\n']);
+        case 'r':
+            return new Set(['\r']);
+        case 't':
+            return new Set(['\t']);
+        default:
+            return new Set([char]);
         }
     }
 

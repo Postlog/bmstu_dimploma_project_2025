@@ -12,52 +12,52 @@ class DFA {
 
     static fromNFA(nfa) {
         const dfa = new DFA();
-    
+
         // Начальное состояние ДКА - ε-замыкание начального состояния НКА
         const startStateSet = nfa.getEpsilonClosure([nfa.startState]);
         const startStateName = stateSetToString(startStateSet);
         const dfaStartState = dfa.createState();
         dfa.setStartState(dfaStartState);
-        
+
         // Объект для отслеживания соответствия множеств состояний НКА и состояний ДКА
         const stateSetToState = {};
         stateSetToState[startStateName] = dfaStartState;
-        
+
         // Очередь неисследованных состояний ДКА
         const unmarkedStates = [{ dfaState: dfaStartState, nfaStateSet: startStateSet }];
-        
+
         // Проверяем, является ли начальное состояние принимающим
         if (isAcceptingStateSet(startStateSet, nfa.acceptStates)) {
             const style = getStyleForStateSet(startStateSet, nfa.acceptStates);
             dfa.addAcceptState(dfaStartState, style);
         }
-        
+
         // Основной цикл алгоритма
         while (unmarkedStates.length > 0) {
             const current = unmarkedStates.shift();
             const currentDfaState = current.dfaState;
             const currentNfaStateSet = current.nfaStateSet;
-            
+
             // Получаем все символы из переходов НКА
             const alphabet = getAllSymbols(nfa);
-            
+
             // Для каждого символа алфавита
             for (const symbol of alphabet) {
                 // Вычисляем move(текущее_множество, символ)
                 const moveResult = move(nfa, currentNfaStateSet, symbol);
-                
+
                 // Вычисляем ε-замыкание результата
                 const nextNfaStateSet = nfa.getEpsilonClosure(moveResult);
-                
+
                 // Если получили пустое множество, пропускаем
                 if (nextNfaStateSet.length === 0) {
                     continue;
                 }
-                
+
                 const nextStateName = stateSetToString(nextNfaStateSet);
-                
+
                 let nextDfaState;
-                
+
                 // Проверяем, есть ли уже состояние для этого множества
                 if (stateSetToState[nextStateName]) {
                     nextDfaState = stateSetToState[nextStateName];
@@ -65,25 +65,25 @@ class DFA {
                     // Создаем новое состояние ДКА
                     nextDfaState = dfa.createState();
                     stateSetToState[nextStateName] = nextDfaState;
-                    
+
                     // Проверяем, является ли новое состояние принимающим
                     if (isAcceptingStateSet(nextNfaStateSet, nfa.acceptStates)) {
                         const style = getStyleForStateSet(nextNfaStateSet, nfa.acceptStates);
                         dfa.addAcceptState(nextDfaState, style);
                     }
-                    
+
                     // Добавляем в очередь для дальнейшего исследования
                     unmarkedStates.push({
                         dfaState: nextDfaState,
-                        nfaStateSet: nextNfaStateSet
+                        nfaStateSet: nextNfaStateSet,
                     });
                 }
-                
+
                 // Добавляем переход в ДКА
                 dfa.addTransition(currentDfaState, symbol, nextDfaState);
             }
         }
-        
+
         return dfa;
     }
 
@@ -91,7 +91,7 @@ class DFA {
      * Создание нового состояния
      */
     createState() {
-        const state = `q${this.stateCounter++}`;
+        const state = this.stateCounter++;
         this.states.push(state);
         return state;
     }
@@ -133,24 +133,19 @@ class DFA {
 
 function runDFA(dfa, input) {
     let currentState = dfa.startState;
-    
-    // Если нет начального состояния, отклоняем
-    if (!currentState) {
-        return false;
-    }
-    
+
     // Обрабатываем каждый символ входной строки
     for (const char of input) {
         const nextState = dfa.getNextState(currentState, char);
-        
+
         // Если нет перехода по данному символу, отклоняем
-        if (!nextState) {
+        if (nextState === null) {
             return false;
         }
-        
+
         currentState = nextState;
     }
-    
+
     // Проверяем, находимся ли в принимающем состоянии
     return currentState in dfa.acceptStates;
 }
@@ -162,13 +157,13 @@ function runDFA(dfa, input) {
  */
 function getAllSymbols(nfa) {
     const symbols = new Set();
-    
+
     for (const fromState in nfa.transitions) {
         for (const symbol in nfa.transitions[fromState]) {
             symbols.add(symbol);
         }
     }
-    
+
     return Array.from(symbols);
 }
 
@@ -177,7 +172,7 @@ function getAllSymbols(nfa) {
  */
 function move(nfa, states, symbol) {
     const result = new Set();
-    
+
     for (const state of states) {
         if (nfa.transitions[state] && nfa.transitions[state][symbol]) {
             for (const nextState of nfa.transitions[state][symbol]) {
@@ -185,7 +180,7 @@ function move(nfa, states, symbol) {
             }
         }
     }
-    
+
     return Array.from(result);
 }
 
@@ -207,7 +202,7 @@ function isAcceptingStateSet(stateSet, acceptStates) {
 function getStyleForStateSet(stateSet, acceptStates) {
     let bestStyle = null;
     let bestPriority = Infinity;
-    
+
     for (const state of stateSet) {
         if (acceptStates[state]) {
             const styleInfo = acceptStates[state];
@@ -217,7 +212,7 @@ function getStyleForStateSet(stateSet, acceptStates) {
             }
         }
     }
-    
+
     return bestStyle;
 }
 

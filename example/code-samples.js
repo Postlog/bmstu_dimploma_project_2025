@@ -1,5 +1,5 @@
 const CODE_SAMPLES = {
-    Go: `package dicts_parameters
+  Go: `package dicts_parameters
 
 import (
 	"context"
@@ -5533,7 +5533,7 @@ func Test_isNeedToFill(t *testing.T) {
 			assert.Equal(t, mock.result, result)
 		})
 	}
-}`
-}
+}`,
+};
 
 export { CODE_SAMPLES };

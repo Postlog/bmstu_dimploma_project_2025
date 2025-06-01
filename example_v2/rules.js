@@ -1,7 +1,7 @@
 const RULES = {
   Test: [
     {
-      Name: 'identifier',
+      Name: 'Identifier',
       Regex: /[a-z]+\d/,
       Style: {
         Color: '#569CD6',
@@ -10,7 +10,7 @@ const RULES = {
       },
     },
     {
-      Name: 'keyword',
+      Name: 'Keyword',
       Regex: /[a-z]+/,
       Style: {
         Color: '#9CDCFE',

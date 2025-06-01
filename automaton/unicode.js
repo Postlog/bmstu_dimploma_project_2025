@@ -5,11 +5,11 @@
  */
 const UNICODE_CHARS = (() => {
     const chars = {
-        // Базовые категории
+    // Базовые категории
         digits: new Set(),
         asciiLetters: new Set(),
         whitespace: new Set([' ', '\t', '\n', '\r', '\f', '\v']),
-        control: new Set(['\n', '\t', '\r']),
+        control: new Set(['\t', '\n', '\r', '\f', '\v']),
 
         // Поддерживаемые языки
         cyrillic: new Set(),         // Русский
@@ -25,7 +25,7 @@ const UNICODE_CHARS = (() => {
 
         // Готовые комбинации (будут заполнены позже)
         word: new Set(),        // \w - буквы, цифры, подчеркивание
-        printable: new Set()    // все печатные символы
+        printable: new Set(),    // все печатные символы
     };
 
     // ASCII цифры (48-57)
@@ -34,8 +34,8 @@ const UNICODE_CHARS = (() => {
     }
 
     // ASCII буквы (65-90, 97-122) - английский
-    for (let i = 65; i <= 90; i++) chars.asciiLetters.add(String.fromCharCode(i)); // A-Z
-    for (let i = 97; i <= 122; i++) chars.asciiLetters.add(String.fromCharCode(i)); // a-z
+    for (let i = 65; i <= 90; i++) {chars.asciiLetters.add(String.fromCharCode(i));} // A-Z
+    for (let i = 97; i <= 122; i++) {chars.asciiLetters.add(String.fromCharCode(i));} // a-z
 
     // ASCII печатные символы (32-126)
     for (let i = 32; i <= 126; i++) {
@@ -94,7 +94,7 @@ const UNICODE_CHARS = (() => {
         for (let i = start; i <= Math.min(end, start + 255); i++) { // Ограничиваем для производительности
             try {
                 chars.emojis.add(String.fromCodePoint(i));
-            } catch (e) {
+            } catch {
                 // Игнорируем недопустимые code points
             }
         }
@@ -103,22 +103,22 @@ const UNICODE_CHARS = (() => {
     // Формируем комбинированные наборы
 
     // \w = ASCII буквы + цифры + кириллица (без подчеркивания)
-    for (const char of chars.asciiLetters) chars.word.add(char);
-    for (const char of chars.digits) chars.word.add(char);
+    for (const char of chars.asciiLetters) {chars.word.add(char);}
+    for (const char of chars.digits) {chars.word.add(char);}
     // Кириллица уже добавлена выше
 
     // Все печатные символы
-    for (const char of chars.asciiLetters) chars.printable.add(char);
-    for (const char of chars.digits) chars.printable.add(char);
-    for (const char of chars.control) chars.printable.add(char);
-    for (const char of chars.cyrillic) chars.printable.add(char);
-    for (const char of chars.generalPunctuation) chars.printable.add(char);
-    for (const char of chars.mathOperators) chars.printable.add(char);
-    for (const char of chars.technicalSymbols) chars.printable.add(char);
-    for (const char of chars.boxDrawing) chars.printable.add(char);
-    for (const char of chars.geometricShapes) chars.printable.add(char);
-    for (const char of chars.miscSymbols) chars.printable.add(char);
-    for (const char of chars.emojis) chars.printable.add(char);
+    for (const char of chars.asciiLetters) {chars.printable.add(char);}
+    for (const char of chars.digits) {chars.printable.add(char);}
+    for (const char of chars.control) {chars.printable.add(char);}
+    for (const char of chars.cyrillic) {chars.printable.add(char);}
+    for (const char of chars.generalPunctuation) {chars.printable.add(char);}
+    for (const char of chars.mathOperators) {chars.printable.add(char);}
+    for (const char of chars.technicalSymbols) {chars.printable.add(char);}
+    for (const char of chars.boxDrawing) {chars.printable.add(char);}
+    for (const char of chars.geometricShapes) {chars.printable.add(char);}
+    for (const char of chars.miscSymbols) {chars.printable.add(char);}
+    for (const char of chars.emojis) {chars.printable.add(char);}
 
     return chars;
 })();

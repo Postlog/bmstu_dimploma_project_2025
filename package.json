@@ -8,9 +8,18 @@
   },
   "scripts": {
     "example": "python3 -m http.server 8000",
-    "test": "for file in tests/*.js; do node $file; done"
+    "test": "node tree/tests/tree.js",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix"
   },
   "author": "Postlog",
   "license": "ISC",
-  "description": ""
+  "description": "",
+  "devDependencies": {
+    "@eslint/js": "^10.0.0",
+    "eslint": "^9.25.1",
+    "eslint-config-airbnb-base": "^15.0.0",
+    "eslint-plugin-import": "^2.31.0",
+    "globals": "^16.0.0"
+  }
 }
