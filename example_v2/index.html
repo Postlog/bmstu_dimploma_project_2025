@@ -3,38 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Syntax Highlighting Editor Demo</title>
+    <title>Редактор кода</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <div class="container">
-        <h1>Syntax Highlighting Editor Demo</h1>
+        <h1>Редактор кода</h1>
         
         <div class="controls">
-            <label for="language-select">Language:</label>
+            <label for="language-select">Язык программирования:</label>
             <select id="language-select">
-                <option value="JavaScript">JavaScript</option>
-                <option value="C">C</option>
-                <option value="C++">C++</option>
-                <option value="Go">Go</option>
-                <option value="Java">Java</option>
-            </select>
-            
-            <label for="sample-select">Code Sample:</label>
-            <select id="sample-select">
-                <option value="">Empty</option>
-            </select>
+            </select>            
         </div>
         
         <div class="editor-container">
             <div id="editor" class="editor" tabindex="0"></div>
-            <!-- Hidden input for capturing text input -->
-            <input type="text" id="hidden-input" class="hidden-input" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+        </div>
+
+        <div class="debug-panel-container">
+            <button id="debug-panel-toggle" class="debug-panel-toggle collapsed">
+                <span class="toggle-icon">▼</span>
+                Отладочная панель
+            </button>
+            <div id="debug-panel" class="debug-panel collapsed">
+                <!-- Debug content will be inserted here -->
+            </div>
         </div>
         
-        <div class="info">
-            <p>Click on the editor and start typing. The syntax highlighting is applied in real-time using automata-based lexical analysis.</p>
-        </div>
     </div>
     
     <script type="module" src="main.js"></script>

@@ -6,29 +6,33 @@ import { buildRealTree, calculateFragments } from '../tree/tree.js';
 export class Editor {
     constructor(editorElement, hiddenInputElement) {
         this.editor = editorElement;
-        this.hiddenInput = hiddenInputElement;
         this.tree = null;
         this.mealy = null;
+
+        // Debug panel elements
+        this.debugPanel = document.getElementById('debug-panel');
+        this.debugPanelToggle = document.getElementById('debug-panel-toggle');
+        this.isDebugPanelOpen = false;
 
         // Критические стили для работы редактора
         this.fontSize = 14;
         this.lineHeight = 21; // 1.5 * fontSize
-        this.fontFamily = "'Consolas', 'Monaco', 'Courier New', monospace";
-        this.charWidth = null; // Ширина символа для моноширинного шрифта
+        this.fontFamily = '\'Consolas\', \'Monaco\', \'Courier New\', monospace';
 
-        this.cursorPosition = 0;
-        this.cursorLine = 0;
-        
         this.leafSpanMap = new WeakMap(); // Связь между листьями дерева и span элементами
         this.spanLeafMap = new WeakMap(); // Обратная связь
-        this.spanCoordinatsMap = new WeakMap(); // {span -> {line, startOffset, endOffset}}
-        this.coordinatesToSpanMap = new Map(); // "line:offset" -> span
+        this.spanPositionMap = new WeakMap(); // {span -> {start, end}} абсолютные позиции в тексте
+
+        // Создаем contenteditable overlay для ввода текста
+        this.inputOverlay = null;
+        this.isComposing = false;
+        this.lastText = '';
 
         // Применяем критические стили к редактору
         this.applyEditorStyles();
 
-        // Вычисляем ширину символа для моноширинного шрифта
-        this.calculateCharWidth();
+        // Создаем overlay для ввода
+        this.createInputOverlay();
 
         this.setupEventListeners();
     }
@@ -41,36 +45,44 @@ export class Editor {
         this.editor.style.fontFamily = this.fontFamily;
         this.editor.style.fontSize = `${this.fontSize}px`;
         this.editor.style.lineHeight = `${this.lineHeight}px`;
-        
+
         // Важные стили для корректной работы
-        this.editor.style.whiteSpace = 'pre';
-        this.editor.style.wordWrap = 'normal';
-        this.editor.style.overflowWrap = 'normal';
-        
-        // Стили для скрытого input
-        this.hiddenInput.style.position = 'absolute';
-        this.hiddenInput.style.left = '-9999px';
-        this.hiddenInput.style.width = '0';
-        this.hiddenInput.style.height = '0';
-        this.hiddenInput.style.opacity = '0';
+        this.editor.style.whiteSpace = 'pre-wrap';
+        this.editor.style.wordWrap = 'break-word';
+        this.editor.style.overflowWrap = 'break-word';
+        this.editor.style.position = 'relative';
+        this.editor.style.cursor = 'text';
     }
 
     /**
-     * Вычисление ширины символа для моноширинного шрифта
+     * Создание contenteditable overlay для ввода текста
      */
-    calculateCharWidth() {
-        const measurer = document.createElement('span');
-        measurer.style.visibility = 'hidden';
-        measurer.style.position = 'absolute';
-        measurer.style.fontFamily = this.fontFamily;
-        measurer.style.fontSize = `${this.fontSize}px`;
-        measurer.style.lineHeight = `${this.lineHeight}px`;
-        measurer.style.whiteSpace = 'pre';
-        measurer.textContent = 'X'; // Любой символ для моноширинного шрифта
-
-        this.editor.appendChild(measurer);
-        this.charWidth = measurer.offsetWidth;
-        this.editor.removeChild(measurer);
+    createInputOverlay() {
+        this.inputOverlay = document.createElement('div');
+        this.inputOverlay.spellcheck = false;
+        this.inputOverlay.contentEditable = true;
+        this.inputOverlay.className = 'input-overlay';
+        this.inputOverlay.style.position = 'absolute';
+        this.inputOverlay.style.top = '0';
+        this.inputOverlay.style.left = '0';
+        this.inputOverlay.style.width = '100%';
+        this.inputOverlay.style.height = '100%';
+        this.inputOverlay.style.color = 'transparent';
+        this.inputOverlay.style.caretColor = 'white';
+        this.inputOverlay.style.outline = 'none';
+        this.inputOverlay.style.overflow = 'hidden';
+        this.inputOverlay.style.whiteSpace = 'pre-wrap';
+        this.inputOverlay.style.wordWrap = 'break-word';
+        this.inputOverlay.style.fontFamily = this.fontFamily;
+        this.inputOverlay.style.fontSize = `${this.fontSize}px`;
+        this.inputOverlay.style.lineHeight = `${this.lineHeight}px`;
+        this.inputOverlay.style.zIndex = '1';
+        
+        // Предотвращаем автоматическое форматирование
+        this.inputOverlay.style.webkitUserModify = 'read-write-plaintext-only';
+        
+        // Добавляем overlay в редактор
+        this.editor.appendChild(this.inputOverlay);
     }
 
     /**
@@ -88,183 +100,524 @@ export class Editor {
             // Пустой редактор
             this.renderEmpty();
         }
+
+        // Синхронизируем текст с overlay
+        this.syncOverlayText();
+
+        this.updateDebugPanel();
+        
+        // Устанавливаем фокус на редактор
+        this.inputOverlay.focus();
+    }
+
+    /**
+     * Синхронизация текста между span'ами и overlay
+     */
+    syncOverlayText() {
+        const text = this.getText();
+        // Устанавливаем только текст, без HTML
+        this.inputOverlay.textContent = text;
+        this.lastText = text;
+        
+        // Возвращаем фокус на overlay если он был активен
+        if (document.activeElement === this.editor || this.editor.contains(document.activeElement)) {
+            this.inputOverlay.focus();
+            // Устанавливаем курсор в конец
+            const range = document.createRange();
+            const selection = window.getSelection();
+            if (this.inputOverlay.firstChild) {
+                range.selectNodeContents(this.inputOverlay);
+                range.collapse(false);
+            } else {
+                range.setStart(this.inputOverlay, 0);
+                range.collapse(true);
+            }
+            selection.removeAllRanges();
+            selection.addRange(range);
+        }
     }
 
     /**
      * Настройка обработчиков событий
      */
     setupEventListeners() {
-        // Клик по редактору фокусирует скрытый input
+        // Клик по редактору фокусирует overlay
         this.editor.addEventListener('click', (e) => {
-            this.hiddenInput.focus();
-            this.updateCursorPosition(e);
+            // Всегда фокусируем overlay при клике
+            this.inputOverlay.focus();
+            
+            // Позиционируем курсор только если кликнули не по самому overlay
+            if (e.target !== this.inputOverlay) {
+                this.positionCursorAtClick(e);
+            }
         });
 
-        // Обработка ввода текста
-        this.hiddenInput.addEventListener('input', (e) => {
-            this.handleInput(e.target.value);
-            e.target.value = '';
+        // Обработка изменений в contenteditable
+        this.inputOverlay.addEventListener('beforeinput', (e) => {
+            // Предотвращаем создание div'ов при Enter
+            if (e.inputType === 'insertParagraph' || e.inputType === 'insertLineBreak') {
+                e.preventDefault();
+                document.execCommand('insertText', false, '\n');
+            }
         });
 
-        // Обработка клавиш
-        this.hiddenInput.addEventListener('keydown', (e) => {
-            this.handleKeyDown(e);
+        // Обработка изменений в contenteditable
+        this.inputOverlay.addEventListener('input', () => {
+            if (!this.isComposing) {
+                this.handleContentChange();
+            }
         });
 
-        // Обработка выделения текста
-        document.addEventListener('selectionchange', () => {
-            this.handleSelectionChange();
+        // Обработка композиции (для поддержки IME)
+        this.inputOverlay.addEventListener('compositionstart', () => {
+            this.isComposing = true;
+        });
+
+        this.inputOverlay.addEventListener('compositionend', () => {
+            this.isComposing = false;
+            this.handleContentChange();
+        });
+
+        // Обработка специальных клавиш
+        this.inputOverlay.addEventListener('keydown', (e) => {
+            // Обрабатываем только специальные случаи
+            if (e.key === 'Tab') {
+                e.preventDefault();
+                document.execCommand('insertText', false, '    ');
+            }
+        });
+
+        // Предотвращаем вставку форматированного текста
+        this.inputOverlay.addEventListener('paste', (e) => {
+            e.preventDefault();
+            const text = (e.clipboardData || window.clipboardData).getData('text');
+            document.execCommand('insertText', false, text);
+        });
+
+        // Debug panel toggle
+        this.debugPanelToggle.addEventListener('click', () => {
+            this.toggleDebugPanel();
         });
     }
 
     /**
-     * Обработка ввода текста
+     * Переключение состояния отладочной панели
      */
-    handleInput(inputValue) {
-        if (!inputValue) return;
+    toggleDebugPanel() {
+        this.isDebugPanelOpen = !this.isDebugPanelOpen;
+        if (!this.isDebugPanelOpen) {
+            this.debugPanel.classList.add('collapsed');
+            this.debugPanelToggle.classList.add('collapsed');
+        } else {
+            this.debugPanel.classList.remove('collapsed');
+            this.debugPanelToggle.classList.remove('collapsed');
+        }
 
-        // Находим текущий span по позиции курсора
-        const targetSpan = this.getSpanAtPosition(this.cursorPosition);
-        console.log('handleInput', inputValue, targetSpan);
+        this.updateDebugPanel();
+    }
 
-        if (!targetSpan) {
-            // Редактор пустой, нужно создать новое дерево
-            this.createNewTree(inputValue);
+    /**
+     * Получение нормализованного текста из contenteditable
+     */
+    getNormalizedTextFromOverlay() {
+        // Клонируем содержимое для обработки
+        const clone = this.inputOverlay.cloneNode(true);
+        
+        // Заменяем все br на переводы строк
+        const brs = clone.querySelectorAll('br');
+        brs.forEach(br => {
+            br.replaceWith('\n');
+        });
+        
+        // Заменяем все div'ы на их содержимое с переводом строки
+        const divs = clone.querySelectorAll('div');
+        divs.forEach((div, index) => {
+            // Первый div не нуждается в переводе строки перед ним
+            const prefix = index > 0 || div.previousSibling ? '\n' : '';
+            const textNode = document.createTextNode(prefix + div.textContent);
+            div.replaceWith(textNode);
+        });
+        
+        // Получаем итоговый текст
+        return clone.textContent || '';
+    }
+
+    /**
+     * Обработка изменений содержимого
+     */
+    handleContentChange() {
+        // Получаем нормализованный текст из overlay
+        const currentText = this.getNormalizedTextFromOverlay();
+        const oldText = this.lastText;
+
+        if (currentText === oldText) {
+            console.log('no change');
             return;
         }
 
-        // Получаем лист, связанный со span'ом
-        const leaf = this.spanLeafMap.get(targetSpan);
+        // Сохраняем текущую позицию курсора
+        let cursorPosition = 0;
+        try {
+            cursorPosition = this.getAbsoluteCaretPosition();
+        } catch (e) {
+            // Если не удалось получить позицию, устанавливаем в конец
+            cursorPosition = currentText.length;
+        }
+
+        console.log('cursorPosition', cursorPosition);
+
+        // Находим различия между старым и новым текстом
+        const diff = this.findTextDifference(oldText, currentText);
+        console.log('diff', diff);
+        if (diff.type === 'insert') {
+            this.handleTextInsertion(diff);
+        } else if (diff.type === 'delete') {
+            this.handleTextDeletion(diff);
+        }
+
+        this.lastText = currentText;
+        
+        // Восстанавливаем фокус после обновления DOM
+        this.inputOverlay.focus();
+        this.restoreCaretPosition(cursorPosition);
+    }
+
+    /**
+     * Получение абсолютной позиции курсора в overlay
+     */
+    getAbsoluteCaretPosition() {
+        const selection = window.getSelection();
+        if (selection.rangeCount === 0) return 0;
+        
+        const range = selection.getRangeAt(0);
+        const preCaretRange = range.cloneRange();
+        preCaretRange.selectNodeContents(this.inputOverlay);
+        preCaretRange.setEnd(range.endContainer, range.endOffset);
+        
+        // Получаем HTML содержимое до курсора
+        const container = document.createElement('div');
+        container.appendChild(preCaretRange.cloneContents());
+        
+        // Нормализуем его так же, как мы нормализуем весь текст
+        const brs = container.querySelectorAll('br');
+        brs.forEach(br => {
+            br.replaceWith('\n');
+        });
+        
+        const divs = container.querySelectorAll('div');
+        divs.forEach((div, index) => {
+            const prefix = index > 0 || div.previousSibling ? '\n' : '';
+            const textNode = document.createTextNode(prefix + div.textContent);
+            div.replaceWith(textNode);
+        });
+        
+        return container.textContent.length;
+    }
+
+    /**
+     * Восстановление позиции курсора после обновления DOM
+     */
+    restoreCaretPosition(position) {
+        const textLength = this.inputOverlay.textContent.length;
+        const safePosition = Math.min(position, textLength);
+        
+        const range = document.createRange();
+        const selection = window.getSelection();
+        
+        // Если overlay пустой, создаем пустой текстовый узел
+        if (!this.inputOverlay.firstChild) {
+            this.inputOverlay.appendChild(document.createTextNode(''));
+        }
+        
+        let currentPos = 0;
+        let targetNode = null;
+        let targetOffset = 0;
+        
+        // Находим нужный текстовый узел и смещение
+        const walker = document.createTreeWalker(
+            this.inputOverlay,
+            NodeFilter.SHOW_TEXT,
+            null,
+            false
+        );
+        
+        while (walker.nextNode()) {
+            const node = walker.currentNode;
+            const nodeLength = node.textContent.length;
+            
+            if (currentPos + nodeLength >= safePosition) {
+                targetNode = node;
+                targetOffset = safePosition - currentPos;
+                break;
+            }
+            
+            currentPos += nodeLength;
+        }
+        
+        if (targetNode) {
+            range.setStart(targetNode, targetOffset);
+            range.collapse(true);
+            selection.removeAllRanges();
+            selection.addRange(range);
+        } else if (this.inputOverlay.firstChild) {
+            // Если не нашли узел, ставим в конец первого узла
+            range.setStart(this.inputOverlay.firstChild, this.inputOverlay.firstChild.textContent.length);
+            range.collapse(true);
+            selection.removeAllRanges();
+            selection.addRange(range);
+        }
+    }
+
+    getTextChangePosition(oldText, newText) {
+        const minLen = Math.min(oldText.length, newText.length);
+        let start = 0;
+
+        // Находим начало изменения
+        while (start < minLen && oldText[start] === newText[start]) {
+            start++;
+        }
+        
+        return start
+    }
+
+    /**
+     * Поиск различий между текстами
+     */
+    findTextDifference(oldText, newText) {
+        const minLen = Math.min(oldText.length, newText.length);
+        let start = 0;
+        let oldEnd = oldText.length;
+        let newEnd = newText.length;
+
+        // Находим начало изменения
+        while (start < minLen && oldText[start] === newText[start]) {
+            start++;
+        }
+
+        // Находим конец изменения
+        while (oldEnd > start && newEnd > start && oldText[oldEnd - 1] === newText[newEnd - 1]) {
+            oldEnd--;
+            newEnd--;
+        }
+
+        if (oldEnd === start && newEnd > start) {
+            // Вставка текста
+            return {
+                type: 'insert',
+                position: start,
+                text: newText.substring(start, newEnd)
+            };
+        } else if (newEnd === start && oldEnd > start) {
+            // Удаление текста
+            return {
+                type: 'delete',
+                position: start,
+                length: oldEnd - start
+            };
+        } else {
+            // Замена (рассматриваем как удаление + вставка)
+            return {
+                type: 'insert',
+                position: start,
+                text: newText.substring(start, newEnd),
+                deleteLength: oldEnd - start
+            };
+        }
+    }
+
+    /**
+     * Обработка вставки текста
+     */
+    handleTextInsertion(diff) {
+        // Если есть удаление, сначала обрабатываем его
+        if (diff.deleteLength) {
+            this.handleTextDeletion({
+                position: diff.position,
+                length: diff.deleteLength
+            });
+        }
+
+        const position = diff.position;
+        const insertedText = diff.text;
+
+        // Находим span в позиции вставки
+        const targetInfo = this.getSpanInfoAtPosition(position);
+        
+        if (!targetInfo) {
+            // Редактор пустой
+            if (insertedText) {
+                this.createNewTree(insertedText);
+                // Не вызываем syncOverlayText здесь, так как он сбросит позицию курсора
+                // Текст уже есть в overlay, просто обновляем lastText
+                this.lastText = this.getNormalizedTextFromOverlay();
+            }
+            return;
+        }
+
+        const { span, offset } = targetInfo;
+        const leaf = this.spanLeafMap.get(span);
         if (!leaf) return;
 
-        console.log('leaf', leaf);
-
-        // Определяем позицию внутри span'а
-        const spanOffset = this.getOffsetInSpan(targetSpan, this.cursorPosition);
-
-        console.log('spanOffset', spanOffset);
-
-        // Вставляем текст в нужную позицию
-        const currentText = targetSpan.textContent;
-        const newText = currentText.slice(0, spanOffset) + inputValue + currentText.slice(spanOffset);
-
-        targetSpan.textContent = newText;
-
-        console.log('newText', newText);
-
-        // Обновляем текст в листе
+        // Обновляем текст в span
+        const currentText = span.textContent;
+        const newText = currentText.slice(0, offset) + insertedText + currentText.slice(offset);
+        
+        span.textContent = newText;
         leaf.onTextChange(newText);
 
-        // Обновляем позицию курсора
-        this.cursorPosition += inputValue.length;
-
-        // Пересчитываем карты координат после изменения
-        this.rebuildCoordinateMaps();
-
-        // Обновляем отображение курсора
-        const { line, column } = this.getLineAndColumnFromPosition(this.cursorPosition);
-        this.cursorLine = line;
-        this.updateCursorDisplay();
+        // Пересчитываем позиции span'ов
+        this.updateSpanPositions();
+        
+        // Позиция курсора будет восстановлена в handleContentChange
     }
 
     /**
-     * Обработка нажатия клавиш
+     * Обработка удаления текста
      */
-    handleKeyDown(event) {
-        switch (event.key) {
-            case 'Backspace':
-                event.preventDefault();
-                this.handleBackspace();
-                break;
-            case 'Delete':
-                event.preventDefault();
-                this.handleDelete();
-                break;
-            case 'ArrowLeft':
-                event.preventDefault();
-                this.moveCursor(-1);
-                break;
-            case 'ArrowRight':
-                event.preventDefault();
-                this.moveCursor(1);
-                break;
-            case 'Enter':
-                event.preventDefault();
-                this.handleInput('\n');
-                break;
-        }
+    handleTextDeletion(diff) {
+        const startPos = diff.position;
+        const endPos = startPos + diff.length;
+
+        // Находим все затронутые span'ы
+        const affectedSpans = this.getSpansInRange(startPos, endPos);
+        
+        affectedSpans.forEach(({ span, startOffset, endOffset }) => {
+            const leaf = this.spanLeafMap.get(span);
+            if (!leaf) return;
+
+            const currentText = span.textContent;
+            const newText = currentText.slice(0, startOffset) + currentText.slice(endOffset);
+            
+            if (newText === '') {
+                leaf.onTextChange('');
+            } else {
+                span.textContent = newText;
+                leaf.onTextChange(newText);
+            }
+        });
+
+        // Пересчитываем позиции span'ов
+        this.updateSpanPositions();
+        
+        // Позиция курсора будет восстановлена в handleContentChange
     }
 
     /**
-     * Обработка удаления символа перед курсором
+     * Позиционирование курсора при клике
      */
-    handleBackspace() {
-        if (this.cursorPosition === 0) return;
+    positionCursorAtClick(event) {
+        const clickX = event.clientX;
+        const clickY = event.clientY;
 
-        const targetSpan = this.getSpanAtPosition(this.cursorPosition);
-        if (!targetSpan) return;
-
-        const leaf = this.spanLeafMap.get(targetSpan);
-        if (!leaf) return;
-
-        console.log('handleBackspace', targetSpan, leaf);
-
-        const spanOffset = this.getOffsetInSpan(targetSpan, this.cursorPosition - 1);
-        const currentText = targetSpan.textContent;
-
-        if (currentText.length === 1) {
-            // Если в span'е остался только один символ, он будет удален
-            leaf.onTextChange('');
-        } else {
-            // Удаляем символ из текста
-            const newText = currentText.slice(0, spanOffset) + currentText.slice(spanOffset + 1);
-            targetSpan.textContent = newText;
-            leaf.onTextChange(newText);
+        // Если кликнули по span'у, вычисляем позицию в тексте
+        const clickedElement = document.elementFromPoint(clickX, clickY);
+        
+        if (clickedElement && clickedElement !== this.inputOverlay && clickedElement.nodeName === 'SPAN') {
+            // Находим позицию span'а в общем тексте
+            const spanInfo = this.spanPositionMap.get(clickedElement);
+            if (spanInfo) {
+                // Вычисляем примерную позицию внутри span'а
+                const spanRect = clickedElement.getBoundingClientRect();
+                const relativeX = clickX - spanRect.left;
+                const charWidth = spanRect.width / clickedElement.textContent.length;
+                const charIndex = Math.round(relativeX / charWidth);
+                const position = spanInfo.start + Math.min(charIndex, clickedElement.textContent.length);
+                
+                // Устанавливаем курсор в вычисленную позицию
+                setTimeout(() => {
+                    this.inputOverlay.focus();
+                    this.restoreCaretPosition(position);
+                }, 0);
+                
+                return;
+            }
         }
 
-        this.cursorPosition--;
+        // Используем стандартное позиционирование браузера
+        let position = 0;
+        
+        if (document.caretPositionFromPoint) {
+            const caret = document.caretPositionFromPoint(clickX, clickY);
+            if (caret && caret.offsetNode === this.inputOverlay.firstChild) {
+                position = caret.offset;
+            }
+        } else if (document.caretRangeFromPoint) {
+            const range = document.caretRangeFromPoint(clickX, clickY);
+            if (range && range.startContainer === this.inputOverlay.firstChild) {
+                position = range.startOffset;
+            }
+        }
 
-        // Пересчитываем карты координат после изменения
-        this.rebuildCoordinateMaps();
-
-        // Обновляем отображение курсора
-        const { line, column } = this.getLineAndColumnFromPosition(this.cursorPosition);
-        this.cursorLine = line;
-        this.updateCursorDisplay();
+        this.restoreCaretPosition(position);
     }
 
     /**
-     * Обработка удаления символа после курсора
+     * Получение информации о span по позиции
      */
-    handleDelete() {
-        const targetSpan = this.getSpanAtPosition(this.cursorPosition + 1);
-        if (!targetSpan) return;
-
-        const leaf = this.spanLeafMap.get(targetSpan);
-        if (!leaf) return;
-
-        const spanOffset = this.getOffsetInSpan(targetSpan, this.cursorPosition);
-        const currentText = targetSpan.textContent;
-
-        if (spanOffset >= currentText.length) return;
-
-        if (currentText.length === 1) {
-            // Если в span'е остался только один символ, он будет удален
-            leaf.onTextChange('');
-        } else {
-            // Удаляем символ из текста
-            const newText = currentText.slice(0, spanOffset) + currentText.slice(spanOffset + 1);
-            targetSpan.textContent = newText;
-            leaf.onTextChange(newText);
+    getSpanInfoAtPosition(position) {
+        const positionMap = this.spanPositionMap;
+        
+        for (const child of this.editor.children) {
+            if (child.nodeName !== 'SPAN' || child === this.inputOverlay) continue;
+            
+            const spanInfo = positionMap.get(child);
+            if (!spanInfo) continue;
+            
+            if (position >= spanInfo.start && position <= spanInfo.end) {
+                return {
+                    span: child,
+                    offset: position - spanInfo.start
+                };
+            }
         }
+        
+        return null;
+    }
 
-        // Пересчитываем карты координат после изменения
-        this.rebuildCoordinateMaps();
+    /**
+     * Получение span'ов в диапазоне позиций
+     */
+    getSpansInRange(startPos, endPos) {
+        const result = [];
+        const positionMap = this.spanPositionMap;
+        
+        for (const child of this.editor.children) {
+            if (child.nodeName !== 'SPAN' || child === this.inputOverlay) continue;
+            
+            const spanInfo = positionMap.get(child);
+            if (!spanInfo) continue;
+            
+            // Проверяем пересечение диапазонов
+            if (spanInfo.end > startPos && spanInfo.start < endPos) {
+                result.push({
+                    span: child,
+                    startOffset: Math.max(0, startPos - spanInfo.start),
+                    endOffset: Math.min(child.textContent.length, endPos - spanInfo.start)
+                });
+            }
+        }
+        
+        return result;
+    }
 
-        // Обновляем отображение курсора
-        const { line, column } = this.getLineAndColumnFromPosition(this.cursorPosition);
-        this.cursorLine = line;
-        this.updateCursorDisplay();
+    /**
+     * Обновление позиций span'ов
+     */
+    updateSpanPositions() {
+        this.spanPositionMap = new WeakMap();
+        let currentPos = 0;
+        
+        for (const child of this.editor.children) {
+            if (child.nodeName !== 'SPAN' || child === this.inputOverlay) continue;
+            
+            const length = child.textContent.length;
+            this.spanPositionMap.set(child, {
+                start: currentPos,
+                end: currentPos + length
+            });
+            
+            currentPos += length;
+        }
     }
 
     /**
@@ -284,11 +637,7 @@ export class Editor {
         // Отрисовываем листья
         this.renderLeaves(leaves);
 
-        // Устанавливаем курсор в конец
-        this.cursorPosition = text.length;
-        const { line, column } = this.getLineAndColumnFromPosition(this.cursorPosition);
-        this.cursorLine = line;
-        this.updateCursorDisplay();
+        this.updateDebugPanel();
     }
 
     /**
@@ -308,16 +657,35 @@ export class Editor {
     handleLeafChange(leaf, changeType, args) {
         console.log('handleLeafChange', leaf, changeType, args);
         switch (changeType) {
-            case 'newStyle':
-                this.updateLeafStyle(leaf, args.newStyle);
-                break;
-            case 'delete':
-                this.removeLeaf(leaf);
-                break;
-            case 'replace':
-                this.replaceLeaf(leaf, args.newLeaves);
-                break;
+        case 'newStyle':
+            this.updateLeafStyle(leaf, args.newStyle);
+            break;
+        case 'delete':
+            this.removeLeaf(leaf);
+            break;
+        case 'replace':
+            this.replaceLeaf(leaf, args.newLeaves);
+            break;
         }
+
+        this.updateDebugPanel();
+    }
+
+    updateDebugPanel() {
+        if (!this.isDebugPanelOpen) {
+            this.debugPanel.innerHTML = '';
+            return;
+        }
+
+        let debugContent = '';
+
+        for (const leaf of this.tree.root.leaves(true)) {
+            debugContent += `
+                    <pre>${leaf.isPseudo ? 'pseudo' : `"${leaf.getText()}"`}: signal=${leaf.signal} style=${leaf.style}</pre>
+            `;
+        }
+
+        this.debugPanel.innerHTML = debugContent;
     }
 
     /**
@@ -326,7 +694,7 @@ export class Editor {
     updateLeafStyle(leaf, newStyle) {
         const span = this.leafSpanMap.get(leaf);
         console.log('updateLeafStyle', leaf, newStyle, span);
-        if (!span) return;
+        if (!span) {return;}
 
         const oldStyle = span.dataset.style;
 
@@ -334,8 +702,8 @@ export class Editor {
         const newTokenClass = this.getTokenClass(newStyle);
 
         if (oldStyle !== newStyle) {
-            span.classList.remove(oldTokenClass)
-            span.classList.add(newTokenClass)
+            span.classList.remove(oldTokenClass);
+            span.classList.add(newTokenClass);
             span.dataset.style = newStyle;
         }
     }
@@ -345,7 +713,7 @@ export class Editor {
      */
     removeLeaf(leaf) {
         const span = this.leafSpanMap.get(leaf);
-        if (!span) return;
+        if (!span) {return;}
 
         // Удаляем span из DOM
         span.remove();
@@ -354,15 +722,16 @@ export class Editor {
         this.leafSpanMap.delete(leaf);
         this.spanLeafMap.delete(span);
 
-        // Пересчитываем карты координат
-        this.rebuildCoordinateMaps();
+        // Пересчитываем позиции
+        this.updateSpanPositions();
 
         // Если редактор стал пустым, показываем заглушку
-        if (this.editor.children.length === 0) {
+        if (this.editor.querySelectorAll('span:not(.input-overlay)').length === 0) {
             this.renderEmpty();
-        } else {
-            this.updateCursorDisplay();
         }
+        
+        // Синхронизируем текст с overlay
+        this.syncOverlayText();
     }
 
     /**
@@ -370,7 +739,7 @@ export class Editor {
      */
     replaceLeaf(oldLeaf, newLeaves) {
         const oldSpan = this.leafSpanMap.get(oldLeaf);
-        if (!oldSpan) return;
+        if (!oldSpan) {return;}
 
         // Создаем новые span'ы для новых листьев
         const newSpans = newLeaves.map(leaf => this.createSpanForLeaf(leaf));
@@ -390,11 +759,11 @@ export class Editor {
         // Настраиваем обработчики для новых листьев
         this.setupLeaves(newLeaves);
 
-        // Пересчитываем карты координат
-        this.rebuildCoordinateMaps();
-
-        // Обновляем отображение курсора
-        this.updateCursorDisplay();
+        // Пересчитываем позиции
+        this.updateSpanPositions();
+        
+        // Синхронизируем текст с overlay
+        this.syncOverlayText();
     }
 
     /**
@@ -437,7 +806,8 @@ export class Editor {
             'Preprocessor': 'token-preprocessor',
             'Annotation': 'token-annotation',
             'Character': 'token-character',
-            'Constant': 'token-constant'
+            'Constant': 'token-constant',
+            'DefaultClass': 'token-default-class',
         };
 
         return styleMap[style] || null;
@@ -447,6 +817,9 @@ export class Editor {
      * Отрисовка листьев в редакторе
      */
     renderLeaves(leaves) {
+        // Сохраняем overlay
+        const overlay = this.inputOverlay;
+        
         // Очищаем редактор
         this.editor.innerHTML = '';
 
@@ -456,182 +829,45 @@ export class Editor {
             this.editor.appendChild(span);
         });
 
-        // Пересчитываем карты координат
-        this.rebuildCoordinateMaps();
+        // Возвращаем overlay
+        this.editor.appendChild(overlay);
 
-        // Обновляем отображение курсора
-        this.updateCursorDisplay();
+        // Пересчитываем позиции
+        this.updateSpanPositions();
+        
+        // Синхронизируем текст с overlay
+        this.syncOverlayText();
     }
 
     /**
      * Отрисовка пустого редактора
      */
     renderEmpty() {
+        // Сохраняем overlay
+        const overlay = this.inputOverlay;
+        
+        // Очищаем редактор
         this.editor.innerHTML = '';
-        this.cursorPosition = 0;
-        this.cursorLine = 0;
-        this.rebuildCoordinateMaps();
-        this.updateCursorDisplay();
-    }
-
-    /**
-     * Получение span'а по позиции в тексте
-     */
-    getSpanAtPosition(position) {
-        let currentPos = 0;
-
-        for (const span of this.editor.children) {
-            if (span.nodeName !== 'SPAN') continue;
-            const spanLength = span.textContent.length;
-            if (position >= currentPos && position <= currentPos + spanLength) {
-                return span;
-            }
-            currentPos += spanLength;
-        }
-
-        return null;
-    }
-
-    /**
-     * Получение смещения внутри span'а
-     */
-    getOffsetInSpan(span, position) {
-        let currentPos = 0;
-
-        for (const child of this.editor.children) {
-            if (child === span) {
-                return position - currentPos;
-            }
-            currentPos += child.textContent.length;
-        }
-
-        return 0;
-    }
-
-    /**
-     * Перемещение курсора
-     */
-    moveCursor(delta) {
-        const totalLength = this.getTotalTextLength();
-        this.cursorPosition = Math.max(0, Math.min(this.cursorPosition + delta, totalLength));
         
-        const { line, column } = this.getLineAndColumnFromPosition(this.cursorPosition);
-        this.cursorLine = line;
+        // Возвращаем overlay
+        this.editor.appendChild(overlay);
         
-        this.updateCursorDisplay();
-    }
-
-    /**
-     * Получение общей длины текста
-     */
-    getTotalTextLength() {
-        return Array.from(this.editor.children).reduce((sum, span) => sum + span.textContent.length, 0);
-    }
-
-    /**
-     * Обновление позиции курсора при клике
-     */
-    updateCursorPosition(event) {
-        // Находим span, на который был произведен клик
-        const clickedSpan = event.target.closest('span');
-        if (!clickedSpan || !this.spanCoordinatsMap.has(clickedSpan)) {
-            // Клик вне текста - ставим курсор в конец
-            this.cursorPosition = this.getTotalTextLength();
-            const { line, column } = this.getLineAndColumnFromPosition(this.cursorPosition);
-            this.cursorLine = line;
-            this.updateCursorDisplay();
-            return;
-        }
-
-        // Получаем координаты span'а
-        const coords = this.spanCoordinatsMap.get(clickedSpan);
+        // Очищаем текст в overlay
+        this.inputOverlay.textContent = '';
+        this.lastText = '';
         
-        // Получаем координаты клика относительно редактора
-        const editorRect = this.editor.getBoundingClientRect();
-        const clickX = event.clientX - editorRect.left;
-        const clickY = event.clientY - editorRect.top;
+        // Очищаем позиции
+        this.spanPositionMap = new WeakMap();
+    }
 
-        // Вычисляем строку по Y координате
-        const clickedLine = Math.floor(clickY / this.lineHeight);
+    /**
+     * Получение текста из редактора
+     */
+    getText() {
+        const spans = Array.from(this.editor.children)
+            .filter(el => el.nodeName === 'SPAN' && el !== this.inputOverlay);
         
-        // Вычисляем позицию в строке по X координате
-        const clickedColumn = Math.round(clickX / this.charWidth);
-
-        // Находим абсолютную позицию в тексте
-        let position = 0;
-        let currentLine = 0;
-        let currentColumn = 0;
-
-        for (const span of this.editor.children) {
-            if (span.nodeName !== 'SPAN') continue;
-
-            const text = span.textContent;
-            for (let i = 0; i < text.length; i++) {
-                if (currentLine === clickedLine && currentColumn === clickedColumn) {
-                    this.cursorPosition = position;
-                    this.cursorLine = clickedLine;
-                    this.updateCursorDisplay();
-                    return;
-                }
-
-                if (text[i] === '\n') {
-                    currentLine++;
-                    currentColumn = 0;
-                } else {
-                    currentColumn++;
-                }
-                position++;
-            }
-
-            // Если мы достигли нужной строки, но колонка больше длины строки
-            if (currentLine === clickedLine) {
-                this.cursorPosition = position;
-                this.cursorLine = clickedLine;
-                this.updateCursorDisplay();
-                return;
-            }
-        }
-
-        // Если не нашли точную позицию, ставим в конец
-        this.cursorPosition = this.getTotalTextLength();
-        const { line, column } = this.getLineAndColumnFromPosition(this.cursorPosition);
-        this.cursorLine = line;
-        this.updateCursorDisplay();
-    }
-
-    /**
-     * Обновление отображения курсора
-     */
-    updateCursorDisplay() {
-        let cursor = this.editor.querySelector('.editor-cursor');
-        if (!cursor) {
-            cursor = document.createElement('div');
-            cursor.className = 'editor-cursor';
-            cursor.style.position = 'absolute';
-            cursor.style.height = `${this.lineHeight}px`;
-            cursor.style.width = '2px';
-            cursor.style.backgroundColor = 'white';
-            this.editor.appendChild(cursor);
-        }
-
-        // Получаем позицию курсора в строке
-        const { line, column } = this.getLineAndColumnFromPosition(this.cursorPosition);
-        this.cursorLine = line;
-
-        // Вычисляем координаты курсора
-        const x = column * this.charWidth;
-        const y = line * this.lineHeight;
-
-        // Позиционируем курсор
-        cursor.style.left = `${x}px`;
-        cursor.style.top = `${y}px`;
-    }
-
-    /**
-     * Обработка изменения выделения
-     */
-    handleSelectionChange() {
-        // Пока не реализовано
+        return spans.map(el => el.textContent).join('');
     }
 
     /**
@@ -640,8 +876,9 @@ export class Editor {
     setText(text) {
         // Очищаем редактор
         this.editor.innerHTML = '';
-        this.cursorPosition = 0;
-        this.cursorLine = 0;
+        
+        // Возвращаем overlay
+        this.editor.appendChild(this.inputOverlay);
 
         if (!text) {
             this.renderEmpty();
@@ -651,88 +888,4 @@ export class Editor {
         // Создаем новое дерево
         this.createNewTree(text);
     }
-
-    /**
-     * Получение текста из редактора
-     */
-    getText() {
-        return Array.from(this.editor.children)
-            .filter(el => el.nodeName === 'SPAN')
-            .map(el => el.textContent)
-            .join('');
-    }
-
-    /**
-     * Пересчет карт координат для всех span'ов
-     */
-    rebuildCoordinateMaps() {
-        this.spanCoordinatsMap = new WeakMap();
-        this.coordinatesToSpanMap.clear();
-
-        let currentLine = 0;
-        let currentOffset = 0;
-
-        for (const span of this.editor.children) {
-            if (span.nodeName !== 'SPAN') continue;
-
-            const text = span.textContent;
-            const startOffset = currentOffset;
-            
-            // Считаем количество переносов строк в тексте
-            let lineBreaks = 0;
-            for (let i = 0; i < text.length; i++) {
-                if (text[i] === '\n') {
-                    lineBreaks++;
-                }
-            }
-
-            const endOffset = currentOffset + text.length;
-
-            // Сохраняем информацию о координатах span'а
-            this.spanCoordinatsMap.set(span, {
-                line: currentLine,
-                startOffset: startOffset,
-                endOffset: endOffset
-            });
-
-            // Для каждой позиции в span'е добавляем запись в карту
-            for (let i = startOffset; i < endOffset; i++) {
-                this.coordinatesToSpanMap.set(`${currentLine}:${i}`, span);
-            }
-
-            currentOffset = endOffset;
-            currentLine += lineBreaks;
-        }
-    }
-
-    /**
-     * Получение строки и позиции в строке по абсолютной позиции
-     */
-    getLineAndColumnFromPosition(position) {
-        let line = 0;
-        let column = 0;
-        let currentPos = 0;
-
-        for (const span of this.editor.children) {
-            if (span.nodeName !== 'SPAN') continue;
-
-            const text = span.textContent;
-            
-            for (let i = 0; i < text.length; i++) {
-                if (currentPos === position) {
-                    return { line, column };
-                }
-
-                if (text[i] === '\n') {
-                    line++;
-                    column = 0;
-                } else {
-                    column++;
-                }
-                currentPos++;
-            }
-        }
-
-        return { line, column };
-    }
-} 
+}

@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Редактор кода</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <div class="main-container">
+        <!-- Основная область редактора -->
+        <div class="editor-area">
+            <div class="editor-header">
+                <span>🎨 Виртуализированный редактор с подсветкой синтаксиса</span>
+                <span id="currentLanguage">Язык не выбран</span>
+            </div>
+            <div class="editor-container">
+                <div class="virtualized-editor" id="virtualizedEditor"></div>
+            </div>
+        </div>
+
+        <!-- Боковая панель настроек -->
+        <div class="sidebar">
+            <!-- Выбор языка -->
+            <div class="sidebar-section">
+                <div class="sidebar-header">🌐 Язык программирования</div>
+                <div class="sidebar-content">
+                    <div class="setting-group">
+                        <label class="setting-label" for="languageSelect">Выберите язык:</label>
+                        <select id="languageSelect" class="setting-input">
+                            <option value="">Выберите язык...</option>
+                        </select>
+                        <div class="language-info" id="languageInfo" style="display: none;">
+                            <span class="rule-count" id="ruleCount">0</span> правил загружено
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { NFA } from '../automaton/nfa.js';
+        import { DFA } from '../automaton/dfa.js';
+        import { MealyMachine, runMealy } from '../automaton/mealy.js';
+        import { VirtualizedCodeEditor } from './virtualized-editor.js';
+        import RULES from './rules.js';
+
+        // Экспортируем в глобальный контекст для использования в виртуализированном редакторе
+        window.NFA = NFA;
+        window.DFA = DFA;
+        window.MealyMachine = MealyMachine;
+        window.runMealy = runMealy;
+
+        // Кэш скомпилированных автоматов Мили для каждого языка
+        const compiledAutomatons = {};
+        let currentLanguage = null;
+        let virtualizedEditor = null;
+
+        window.addEventListener('load', () => {
+            initializeLanguageSelector();
+            setupEventListeners();
+            
+            // Компилируем автомат для первого языка и создаем редактор
+            const languages = Object.keys(RULES);
+            if (languages.length > 0) {
+                changeLanguage(languages[0]);
+                initializeVirtualizedEditor();
+            }
+        });
+
+        function initializeLanguageSelector() {
+            const languageSelect = document.getElementById('languageSelect');
+
+            const languages = Object.keys(RULES);
+
+            if (languages.length === 0) {
+                return
+            }
+
+            // Добавляем все доступные языки в селектор
+            languages.forEach(language => {
+                const option = document.createElement('option');
+                option.value = language;
+                option.textContent = language;
+                languageSelect.appendChild(option);
+            });
+
+            // Устанавливаем первый язык как выбранный
+            languageSelect.value = languages[0];
+        }
+
+        function initializeVirtualizedEditor() {
+            const container = document.getElementById('virtualizedEditor');
+            virtualizedEditor = new VirtualizedCodeEditor(container, null, null, {
+                lineHeight: 20,
+                fontSize: 14,
+                fontFamily: 'Courier New, monospace',
+                padding: 12,
+                overscan: 10,
+                currentLineHighlight: '#2d2d30'
+            });
+
+            // Добавляем начальный текст для тестирования
+            virtualizedEditor.hiddenTextarea.value = `// Пример кода JavaScript
+function fibonacci(n) {
+    if (n <= 1) return n;
+    return fibonacci(n - 1) + fibonacci(n - 2);
+}
+
+console.log(fibonacci(10));`;
+            
+            // Инициализируем строки без создания дерева
+            virtualizedEditor.lines = virtualizedEditor.hiddenTextarea.value.split('\n');
+            virtualizedEditor.totalHeight = virtualizedEditor.lines.length * virtualizedEditor.options.lineHeight + virtualizedEditor.options.padding * 2;
+            virtualizedEditor.spacer.style.height = `${virtualizedEditor.totalHeight}px`;
+            virtualizedEditor.updateTextareaHeight();
+            
+            // Устанавливаем автомат и правила, если они уже скомпилированы
+            if (compiledAutomatons[currentLanguage] && RULES[currentLanguage]) {
+                virtualizedEditor.setAutomaton(compiledAutomatons[currentLanguage], RULES[currentLanguage]);
+            }
+
+            virtualizedEditor.focus()
+        }
+
+        function setupEventListeners() {
+            const languageSelect = document.getElementById('languageSelect');
+
+            languageSelect.addEventListener('change', (e) => {
+                const selectedLanguage = e.target.value;
+                if (selectedLanguage) {
+                    changeLanguage(selectedLanguage);
+                }
+            });
+        }
+
+        function changeLanguage(language) {
+            currentLanguage = language;
+
+            // Обновляем UI
+            document.getElementById('currentLanguage').textContent = language;
+            document.getElementById('ruleCount').textContent = RULES[language].length;
+            document.getElementById('languageInfo').style.display = 'block';
+
+            // Компилируем автомат для языка, если еще не скомпилирован
+            if (!compiledAutomatons[language]) {
+                try {
+                    compiledAutomatons[language] = compileLanguageAutomaton(language);
+                    console.log(`Автомат для ${language} успешно скомпилирован`);
+                } catch (error) {
+                    console.error(`Ошибка компиляции автомата для ${language}:`, error);
+                    return;
+                }
+            }
+
+            // Устанавливаем автомат в виртуализированный редактор если он создан
+            if (virtualizedEditor) {
+                virtualizedEditor.setAutomaton(compiledAutomatons[language], RULES[language]);
+            }
+        }
+
+        function compileLanguageAutomaton(language) {
+            const rules = RULES[language];
+            if (!rules || rules.length === 0) {
+                throw new Error(`Правила для языка ${language} не найдены`);
+            }
+
+            const nfas = rules.map(rule => {
+                const regexString = rule.Regex.source;
+                console.log(language, rule.Name, regexString);
+                return NFA.fromRegex(regexString, rule.Name);
+            });
+
+            const unionNFA = NFA.union(nfas);
+            const dfa = DFA.fromNFA(unionNFA);
+            return MealyMachine.fromDFA(dfa);
+        }
+    </script>
+</body>
+
+</html>

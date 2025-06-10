@@ -1,4 +1,4 @@
-import { runMealy } from '../mealy.js';
+import { runMealy } from '../automaton/mealy.js';
 
 /**
  * Виртуализированный редактор кода
@@ -56,6 +56,7 @@ class VirtualizedCodeEditor {
 
         // Создаем скрытое текстовое поле для ввода
         this.hiddenTextarea = document.createElement('textarea');
+        this.hiddenTextarea.spellcheck = false;
         this.hiddenTextarea.style.position = 'absolute';
         this.hiddenTextarea.style.top = '0';
         this.hiddenTextarea.style.left = '60px'; // сдвигаем вправо от номеров строк

@@ -1,0 +1,489 @@
+/* Импорт современных шрифтов */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600&display=swap');
+
+/* Основные стили */
+* {
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    margin: 0;
+    padding: 0;
+    background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
+    color: #e4e6ea;
+    height: 100vh;
+    overflow: hidden;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.main-container {
+    display: flex;
+    height: 100vh;
+    backdrop-filter: blur(10px);
+}
+
+/* Область редактора */
+.editor-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: rgba(30, 30, 30, 0.95);
+    border-right: 1px solid rgba(255, 255, 255, 0.1);
+    position: relative;
+}
+
+.editor-area::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(45deg, rgba(0, 123, 255, 0.03) 0%, rgba(138, 43, 226, 0.03) 100%);
+    pointer-events: none;
+    z-index: 0;
+}
+
+/* Заголовок редактора */
+.editor-header {
+    background: linear-gradient(135deg, #2d2d30 0%, #3a3a3d 100%);
+    color: #e4e6ea;
+    padding: 12px 16px;
+    font-size: 13px;
+    font-weight: 500;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    position: relative;
+    z-index: 1;
+}
+
+.editor-header::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent 0%, rgba(0, 123, 255, 0.5) 50%, transparent 100%);
+}
+
+.editor-container {
+    flex: 1;
+    background: rgba(30, 30, 30, 0.98);
+    position: relative;
+    z-index: 1;
+}
+
+.virtualized-editor {
+    width: 100%;
+    height: 100%;
+    background: transparent;
+    color: #d4d4d4;
+    border: none;
+    outline: none;
+    font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+    --current-line-color: #2d2d30;
+}
+
+/* Боковая панель */
+.sidebar {
+    width: 380px;
+    background: linear-gradient(180deg, #252526 0%, #2a2a2b 100%);
+    border-left: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    box-shadow: -4px 0 20px rgba(0, 0, 0, 0.3);
+    position: relative;
+}
+
+.sidebar::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 1px;
+    height: 100%;
+    background: linear-gradient(180deg, rgba(0, 123, 255, 0.3) 0%, rgba(138, 43, 226, 0.3) 100%);
+}
+
+/* Секции боковой панели */
+.sidebar-section {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    transition: all 0.3s ease;
+}
+
+.sidebar-section:hover {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.sidebar-header {
+    background: linear-gradient(135deg, #2d2d30 0%, #3a3a3d 100%);
+    padding: 12px 16px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: #e4e6ea;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    letter-spacing: 0.5px;
+    position: relative;
+    overflow: hidden;
+}
+
+.sidebar-header::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, #007bff 0%, #8a2be2 100%);
+}
+
+.sidebar-content {
+    padding: 20px 16px;
+}
+
+/* Группы настроек */
+.setting-group {
+    margin-bottom: 24px;
+    position: relative;
+}
+
+.setting-group::after {
+    content: '';
+    position: absolute;
+    bottom: -12px;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.1) 50%, transparent 100%);
+}
+
+.setting-group:last-child::after {
+    display: none;
+}
+
+.setting-label {
+    display: block;
+    font-size: 13px;
+    color: #e4e6ea;
+    margin-bottom: 8px;
+    font-weight: 500;
+    letter-spacing: 0.2px;
+}
+
+/* Стильные селекторы */
+.setting-input {
+    width: 100%;
+    padding: 12px 16px;
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    background: linear-gradient(135deg, #3c3c3c 0%, #404040 100%);
+    color: #e4e6ea;
+    font-size: 13px;
+    font-family: inherit;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.setting-input:focus {
+    outline: none;
+    border-color: #007bff;
+    background: linear-gradient(135deg, #404040 0%, #454545 100%);
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.2), 0 4px 12px rgba(0, 0, 0, 0.3);
+    transform: translateY(-1px);
+}
+
+.setting-input:hover {
+    border-color: rgba(255, 255, 255, 0.2);
+    background: linear-gradient(135deg, #404040 0%, #454545 100%);
+}
+
+/* Стильные range слайдеры */
+.setting-range {
+    width: 100%;
+    height: 6px;
+    border-radius: 3px;
+    background: linear-gradient(90deg, #3c3c3c 0%, #404040 100%);
+    outline: none;
+    margin: 8px 0;
+    -webkit-appearance: none;
+    appearance: none;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.setting-range::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+    cursor: pointer;
+    border: 2px solid #ffffff;
+    box-shadow: 0 2px 8px rgba(0, 123, 255, 0.4);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.setting-range::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+    box-shadow: 0 4px 12px rgba(0, 123, 255, 0.6);
+}
+
+.setting-range::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+    cursor: pointer;
+    border: 2px solid #ffffff;
+    box-shadow: 0 2px 8px rgba(0, 123, 255, 0.4);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.setting-range::-moz-range-thumb:hover {
+    transform: scale(1.2);
+    box-shadow: 0 4px 12px rgba(0, 123, 255, 0.6);
+}
+
+/* Стильный color picker */
+.setting-color {
+    width: 50px;
+    height: 35px;
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    background: transparent;
+    position: relative;
+    overflow: hidden;
+}
+
+.setting-color:hover {
+    border-color: #007bff;
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+}
+
+.setting-color:focus {
+    outline: none;
+    border-color: #007bff;
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.2);
+}
+
+/* Информация о языке */
+.language-info {
+    background: linear-gradient(135deg, rgba(0, 123, 255, 0.1) 0%, rgba(138, 43, 226, 0.1) 100%);
+    padding: 12px 16px;
+    border-radius: 8px;
+    border: 1px solid rgba(0, 123, 255, 0.2);
+    margin-top: 12px;
+    font-size: 12px;
+    position: relative;
+    overflow: hidden;
+    backdrop-filter: blur(10px);
+}
+
+.language-info::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, #007bff 0%, #8a2be2 100%);
+}
+
+.language-info .rule-count {
+    font-weight: 700;
+    color: #007bff;
+    text-shadow: 0 0 10px rgba(0, 123, 255, 0.5);
+}
+
+/* Кнопки (если будут добавлены) */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+    text-decoration: none;
+    min-height: 40px;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+    color: white;
+    box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 123, 255, 0.4);
+    background: linear-gradient(135deg, #0056b3 0%, #004085 100%);
+}
+
+.btn-secondary {
+    background: linear-gradient(135deg, #6c757d 0%, #545b62 100%);
+    color: white;
+    box-shadow: 0 4px 12px rgba(108, 117, 125, 0.3);
+}
+
+.btn-secondary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(108, 117, 125, 0.4);
+    background: linear-gradient(135deg, #545b62 0%, #3d4449 100%);
+}
+
+/* Анимации */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.setting-group {
+    animation: fadeIn 0.5s ease-out;
+}
+
+/* Скроллбар */
+.sidebar::-webkit-scrollbar {
+    width: 8px;
+}
+
+.sidebar::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #007bff 0%, #8a2be2 100%);
+    border-radius: 4px;
+}
+
+.sidebar::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, #0056b3 0%, #6a1b9a 100%);
+}
+
+/* Адаптивность */
+@media (max-width: 1200px) {
+    .sidebar {
+        width: 320px;
+    }
+}
+
+@media (max-width: 768px) {
+    .main-container {
+        flex-direction: column;
+    }
+    
+    .sidebar {
+        width: 100%;
+        height: 300px;
+        border-left: none;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+}
+
+/* Дополнительные эффекты */
+.setting-input option {
+    background: #3c3c3c;
+    color: #e4e6ea;
+    padding: 8px;
+}
+
+/* Эффект свечения для активных элементов */
+.setting-input:focus,
+.setting-color:hover,
+.btn:hover {
+    position: relative;
+}
+
+.setting-input:focus::after,
+.setting-color:hover::after,
+.btn:hover::after {
+    content: '';
+    position: absolute;
+    top: -2px;
+    left: -2px;
+    right: -2px;
+    bottom: -2px;
+    background: linear-gradient(45deg, #007bff, #8a2be2, #007bff);
+    border-radius: inherit;
+    z-index: -1;
+    filter: blur(8px);
+    opacity: 0.7;
+    animation: glow 2s linear infinite;
+}
+
+@keyframes glow {
+    0%, 100% {
+        filter: blur(8px) hue-rotate(0deg);
+    }
+    50% {
+        filter: blur(12px) hue-rotate(180deg);
+    }
+}
+
+/* Оптимизированные стили для строк редактора */
+.line-container {
+    display: flex;
+    white-space: pre;
+    overflow: hidden;
+    contain: layout style paint;
+    cursor: pointer;
+}
+
+.line-container.current-line {
+    background-color: var(--current-line-color, #2d2d30);
+}
+
+.line-number {
+    width: 60px;
+    background: #2d2d30;
+    border-right: 1px solid #3e3e42;
+    color: #858585;
+    text-align: right;
+    padding-right: 8px;
+    user-select: none;
+    pointer-events: none;
+    flex-shrink: 0;
+    box-sizing: border-box;
+    font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+}
+
+.line-number.current-line {
+    background: var(--current-line-color, #2d2d30);
+    color: #cccccc;
+    font-weight: 500;
+}
+
+.line-content {
+    flex: 1;
+    padding-left: 12px;
+    padding-right: 12px;
+    overflow: hidden;
+    font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+}
+

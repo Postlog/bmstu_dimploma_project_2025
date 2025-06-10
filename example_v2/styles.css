@@ -77,24 +77,28 @@ h1 {
     outline: none;
 }
 
-/* Cursor styles */
-.editor-cursor {
-    display: inline-block;
-    width: 2px;
-    height: 1.2em;
-    background-color: #ffffff;
-    animation: blink 1s infinite;
+/* Input overlay styles */
+.input-overlay {
+    user-select: text;
+    -webkit-user-select: text;
+    -moz-user-select: text;
+    -ms-user-select: text;
+    pointer-events: none;
+}
+
+.input-overlay:focus {
+    outline: none;
+    pointer-events: auto;
+}
+
+/* Ensure spans are below the overlay */
+.editor > span {
     position: relative;
-    margin-left: -1px;
-    margin-right: -1px;
+    z-index: 0;
+    pointer-events: auto;
 }
 
-@keyframes blink {
-    0%, 50% { opacity: 1; }
-    51%, 100% { opacity: 0; }
-}
-
-/* Hidden input for capturing keyboard events */
+/* Hidden input for capturing keyboard events - can be removed now */
 .hidden-input {
     position: absolute;
     left: -9999px;
@@ -157,6 +161,10 @@ h1 {
     color: #569CD6;
 }
 
+.token-default-class {
+    color: #4EC9B0;
+}
+
 /* Selection styles */
 .editor ::selection {
     background-color: #264f78;
@@ -178,4 +186,54 @@ h1 {
 .editor-empty {
     color: #6e6e6e;
     font-style: italic;
+}
+
+/* Debug Panel Styles */
+.debug-panel-container {
+    margin-top: 20px;
+}
+
+.debug-panel-toggle {
+    width: 100%;
+    padding: 10px 15px;
+    background-color: #252526;
+    border: 1px solid #464647;
+    border-radius: 5px 5px 0 0;
+    color: #d4d4d4;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 14px;
+    transition: background-color 0.2s;
+}
+
+.debug-panel-toggle:hover {
+    background-color: #2d2d2e;
+}
+
+.debug-panel-toggle .toggle-icon {
+    transition: transform 0.2s;
+}
+
+.debug-panel-toggle.collapsed .toggle-icon {
+    transform: rotate(-90deg);
+}
+
+.debug-panel {
+    background-color: #1e1e1e;
+    border: 1px solid #464647;
+    border-top: none;
+    border-radius: 0 0 5px 5px;
+    padding: 15px;
+    max-height: 300px;
+    overflow-y: auto;
+    transition: max-height 0.3s ease-in-out;
+}
+
+.debug-panel.collapsed {
+    max-height: 0;
+    padding: 0;
+    overflow: hidden;
+    border: none;
 } 

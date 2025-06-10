@@ -1,33 +1,22 @@
-const RULES = {
-  Test: [
-    {
-      Name: 'Identifier',
-      Regex: /[a-z]+\d/,
-      Style: {
-        Color: '#569CD6',
-        Bold: false,
-        Italic: false,
-      },
-    },
-    {
-      Name: 'Keyword',
-      Regex: /[a-z]+/,
-      Style: {
-        Color: '#9CDCFE',
-        Bold: false,
-        Italic: false,
-      },
-    },
-  ],
+export default {
   /* ------------------------------------------ */
   /* --------------- JavaScript --------------- */
   /* ------------------------------------------ */
   JavaScript: [
     {
       Name: 'Keyword',
-      Regex: /if|else|for|while|function|return|var|let|const|class|import|export/,
+      Regex: /if|else|for|of|=>|while|do|switch|case|break|continue|default|try|catch|finally|throw|function|return|var|let|const|class|extends|super|import|export|new|this|typeof|instanceof|void|delete|in|of|as|from|static|get|set|enum|implements|interface|package|private|protected|public|with|abstract|boolean|byte|char|double|final|float|goto|int|long|native|short|synchronized|throws|transient|volatile|async|await|yield|debugger|null|undefined|true|false|window|document/,
       Style: {
         Color: '#569CD6',
+        Bold: false,
+        Italic: false,
+      },
+    },
+    {
+      Name: 'DefaultClass',
+      Regex: /Math|Object|Array|String|Number|Boolean|Date|RegExp|Error|Promise|JSON|console/,
+      Style: {
+        Color: '#4EC9B0',
         Bold: false,
         Italic: false,
       },
@@ -658,5 +647,3 @@ const RULES = {
     },
   ],
 };
-
-export { RULES };

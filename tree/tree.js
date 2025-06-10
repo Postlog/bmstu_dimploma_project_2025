@@ -850,7 +850,7 @@ function buildTreeFromFragments(mealy, text, fragments) {
         const firstLeafFinishState = allLeaves[0].A[allLeaves[0].startState];
 
         const root = new InetrnalNode(
-            mealy, 
+            mealy,
             allLeaves[0],
             new InetrnalNode(
                 mealy,
